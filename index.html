@@ -187,6 +187,15 @@ h2{font-size:clamp(20px,3vw,26px)}
 @keyframes wob{from{transform:rotate(68deg)}to{transform:rotate(86deg)}}
 .therm{transform-box:fill-box;transform-origin:50% 100%;transform:scaleY(.35);transition:transform .9s}
 .oc .therm{transform:scaleY(.6)}.volt .therm{transform:scaleY(.85)}.crash .therm{transform:scaleY(1)}.xmp .therm{transform:scaleY(.37)}
+.more{display:flex;flex-direction:column;gap:12px;padding-top:8px;border-top:1.5px solid var(--line)}
+.more h3{font-size:18px}
+.morelist{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:14px}
+.morecard{display:flex;flex-direction:column;gap:4px;padding:16px 18px;border:2px solid var(--stroke);border-radius:14px;background:var(--card);color:var(--ink);text-decoration:none;box-shadow:3px 3px 0 var(--stroke);transition:transform .15s}
+a.morecard:hover{transform:translateY(-2px)}
+.morecard b{font-family:var(--f-disp);font-size:17px}
+.morecard span{color:var(--muted);font-size:14px}
+.morecard em{font-style:normal;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--grn)}
+.morecard.here{box-shadow:none;border-style:dashed}
 @media (prefers-reduced-motion:reduce){svg *{animation:none!important}.actor{transition:none}}
 
 :root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -226,6 +235,8 @@ img{max-width:100%}
       <button class="btn primary nextep" id="nextep" type="button"></button>
     </aside>
   </main>
+
+  <footer class="more"><h3>Все мультики</h3><div class="morelist"><div class="morecard here"><em>Вы здесь</em><b>Кухня внутри ПК</b><span>12 серий: процессор, оперативка, накопители, видеокарта, BIOS, разгон, сборка</span></div><a class="morecard" href="https://jumagulovnm2016-ai.github.io/ai-cartoon/"><em>Смотреть →</em><b>Как думает нейросеть</b><span>10 серий: нейрон, обучение, языковые модели, галлюцинации, железо для ИИ</span></a></div></footer>
 </div>
 
 <script>
