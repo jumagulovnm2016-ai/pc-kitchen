@@ -214,6 +214,7 @@ img{max-width:100%}
       <div class="controls">
         <button class="btn" id="prev" type="button">Назад</button>
         <div class="dots" id="dots"></div>
+        <button class="btn" id="voice" type="button" aria-pressed="false">Голос</button>
         <button class="btn" id="play" type="button">Авто</button>
         <button class="btn primary" id="next" type="button">Дальше</button>
       </div>
@@ -668,7 +669,30 @@ const KEY='pc-kitchen-v1';
 let store={ans:{}};
 try{const s=JSON.parse(localStorage.getItem(KEY)||'null');if(s&&s.ans)store=s}catch(e){}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(store))}catch(e){}};
-let ep=0,fr=0,timer=null,seen=new Set();
+let ep=0,fr=0,auto=false,autoT=null,seen=new Set();
+
+/* ---------- voice ---------- */
+const synth=('speechSynthesis' in window)?window.speechSynthesis:null;
+let voiceOn=false,ruVoice=null,speakId=0;
+const SAY=[[/VRAM/g,'ви-рам'],[/CPU/g,'си-пи-ю'],[/RAM/g,'рам'],[/GPU/g,'джи-пи-ю'],[/NVMe/g,'эн-ви-эм-и'],[/SSD/g,'эс-эс-ди'],[/HDD/g,'эйч-ди-ди'],
+ [/(\d+)GB/g,'$1 гигабайт'],[/DDR(\d)-(\d+)/g,'ди-ди-эр $1, $2'],[/DDR(\d)/g,'ди-ди-эр $1'],[/CL(\d+)/g,'си-эль $1'],[/ГГц/g,'гигагерц'],[/ГБ/g,'гигабайт'],
+ [/МТ\/с/g,'мегатрансферов в секунду'],[/UEFI/g,'уефи'],[/BIOS/g,'биос'],[/POST/g,'пост'],[/XMP/g,'икс-эм-пи'],[/EXPO/g,'экспо'],[/M\.2/g,'эм-два'],
+ [/AM5/g,'эй-эм пять'],[/LGA/g,'эл-джи-эй '],[/Full HD/g,'фул эйч-ди'],[/Ctrl/g,'контрол'],[/Shift/g,'шифт'],[/Esc/g,'эскейп'],[/×/g,' на '],
+ [/Windows/g,'виндоус'],[/USB/g,'ю-эс-би'],[/L1/g,'эль один'],[/L2/g,'эль два'],[/L3/g,'эль три'],[/(\d) В(?=[\s,.)—]|$)/g,'$1 вольт'],[/\(Вт\)/g,''],[/\+/g,' '],[/ЦП/g,'цэ-пэ'],[/\//g,' или ']];
+function pickVoice(){if(!synth)return;const v=synth.getVoices().filter(x=>/^ru/i.test(x.lang));ruVoice=v.find(x=>/natural|online|google|milena|svetlana|dariya/i.test(x.name))||v[0]||null}
+if(synth){pickVoice();synth.onvoiceschanged=pickVoice}
+function speak(html,done){
+  if(!synth){done&&done();return}
+  synth.cancel();const id=++speakId;
+  const d=document.createElement('div');d.innerHTML=html;let t=d.textContent;
+  SAY.forEach(([r,s])=>{t=t.replace(r,s)});t=t.replace(/[А-ЯЁ]{3,}/g,w=>w.toLowerCase());
+  const parts=(t.match(/[^.!?…]+[.!?…]*/g)||[t]).map(s=>s.trim()).filter(Boolean);let i=0;
+  const next=()=>{if(id!==speakId)return;if(i>=parts.length){done&&done();return}
+    const u=new SpeechSynthesisUtterance(parts[i++]);u.lang='ru-RU';if(ruVoice)u.voice=ruVoice;u.rate=1;u.onend=next;u.onerror=next;synth.speak(u)};
+  next();
+}
+function hush(){speakId++;if(synth)synth.cancel()}
+function advanceAuto(){if(!auto)return;if(fr<EP[ep].frames.length-1){fr++;applyFrame()}else stopAuto()}
 const $=id=>document.getElementById(id);
 
 const isDone=i=>EP[i].quiz.every((q,j)=>store.ans[`${i}-${j}`]!==undefined);
@@ -712,22 +736,31 @@ function applyFrame(){
   [...$('dots').children].forEach((d,i)=>{d.className=i===fr?'cur':(seen.has(i)?'seen':'')});
   $('prev').disabled=fr===0;
   $('next').textContent=fr<e.frames.length-1?'Дальше':'К вопросам';
+  clearTimeout(autoT);
+  if(voiceOn)speak(f.t,()=>{if(auto)autoT=setTimeout(advanceAuto,900)});
+  else if(auto)autoT=setTimeout(advanceAuto,6500);
 }
 function go(d){
   const n=EP[ep].frames.length;
   if(d>0&&fr===n-1){stopAuto();document.querySelector('.quiz').scrollIntoView({behavior:'smooth',block:'start'});return}
   fr=Math.max(0,Math.min(n-1,fr+d));applyFrame();
 }
-function stopAuto(){clearInterval(timer);timer=null;$('play').classList.remove('on');$('play').textContent='Авто'}
+function stopAuto(){auto=false;clearTimeout(autoT);hush();$('play').classList.remove('on');$('play').textContent='Авто'}
 function setEp(i,push=true){stopAuto();ep=i;renderEp();if(push){try{history.replaceState(null,'','#ep-'+(i+1))}catch(e){location.hash='ep-'+(i+1)}}}
 
 $('prev').onclick=()=>{stopAuto();go(-1)};
 $('next').onclick=()=>{stopAuto();go(1)};
 $('play').onclick=()=>{
-  if(timer){stopAuto();return}
-  $('play').classList.add('on');$('play').textContent='Пауза';
-  if(fr===EP[ep].frames.length-1){fr=0;applyFrame()}
-  timer=setInterval(()=>{if(fr<EP[ep].frames.length-1){fr++;applyFrame()}else stopAuto()},6500);
+  if(auto){stopAuto();return}
+  auto=true;$('play').classList.add('on');$('play').textContent='Пауза';
+  if(fr===EP[ep].frames.length-1)fr=0;
+  applyFrame();
+};
+if(!synth)$('voice').hidden=true;
+$('voice').onclick=()=>{
+  voiceOn=!voiceOn;const b=$('voice');
+  b.classList.toggle('on',voiceOn);b.setAttribute('aria-pressed',String(voiceOn));b.textContent=voiceOn?'Голос вкл':'Голос';
+  if(voiceOn){pickVoice();applyFrame()}else{hush();if(auto){clearTimeout(autoT);autoT=setTimeout(advanceAuto,6500)}}
 };
 $('eps').onclick=ev=>{const b=ev.target.closest('.chip');if(b)setEp(+b.dataset.i)};
 $('nextep').onclick=()=>{if(ep<EP.length-1){setEp(ep+1);window.scrollTo({top:0,behavior:'smooth'})}};
